@@ -5,6 +5,8 @@ import (
     "log"
     "io"
     "encoding/json"
+    "errors"
+    "fmt"
 )
 
 
@@ -77,18 +79,37 @@ func fetchData(url string) ([]byte, error) {
         return nil, err
     }
     defer res.Body.Close()
-
     body, err := io.ReadAll(res.Body)
     if err != nil {
         return nil, err
     }
-
     if res.StatusCode > 299 {
-        log.Fatalf("Response failed with status code: %d and\nbody: %s\n", res.StatusCode, body)
+	return nil, errors.New(
+	    fmt.Sprintf(
+		"Response failed with status code: %d and\nbody: %s\n",
+		res.StatusCode, body,
+	    ),
+	)
     }
-
     return body, nil
 }
+
+func fetchDataPokemon(url string) ([]byte, error, int) {
+    res, err := http.Get(url)
+    if err != nil {
+        return nil, err, 0
+    }
+    defer res.Body.Close()
+    body, err := io.ReadAll(res.Body)
+    if err != nil {
+        return nil, err, 0
+    }
+    if res.StatusCode > 299 {
+	return nil, nil, res.StatusCode
+    }
+    return body, nil, 0
+}
+
 func getBatch(respB *respBatch, batch string) {
     var url string
     if batch == "n" {
@@ -114,7 +135,7 @@ func getBatch(respB *respBatch, batch string) {
 }
 
 func getLocation(respN *Location, locationName string) {
-    url := baseURL + locationName
+    url := "https://pokeapi.co/api/v2/location-area/" + locationName
     // fmt.Println(url)
     body, err := fetchData(url)
     if err != nil {
@@ -123,4 +144,15 @@ func getLocation(respN *Location, locationName string) {
     json.Unmarshal(body, &respN)
 }
 
-// func getNames()
+func getPokemon(pokemon *Pokemon, pokemonName string) error {
+    url := "https://pokeapi.co/api/v2/pokemon/" + pokemonName
+    body, err, code := fetchDataPokemon(url)
+    if err != nil {
+        log.Fatal(err)
+    }
+    if code == 404 {
+	return errors.New("Not valid pokemon name")
+    }
+    json.Unmarshal(body, &pokemon)
+    return nil
+}
